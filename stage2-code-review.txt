@@ -1,0 +1,135 @@
+STAGE 2: CODE REVIEW EXERCISE
+OrderController review
+
+Recommendation: request changes before merging.
+
+The controller separates listing, creation and deletion clearly. However, the
+current implementation needs stronger access control, input validation, error
+handling and database query behaviour.
+
+1. Access control and ownership - high priority
+
+index() returns every order. store() accepts user_id directly from the request,
+and destroy() looks up any order by ID. No authorization is visible in this
+controller. Authentication middleware and policies may exist elsewhere, so
+check the routes and policy configuration before concluding they are absent.
+
+For a customer-facing API, scope the list to the authenticated user, derive
+user_id from that user on creation, and authorize deletion using an OrderPolicy.
+Authentication alone does not establish permission to view or delete an order.
+For an administrator endpoint, require explicit permission to manage other
+users' orders rather than assuming any authenticated user has that permission.
+
+2. Validate creation input and protect business rules - high priority
+
+store() copies user_id, total and status from an unvalidated Request. Introduce
+a StoreOrderRequest with validation and authorization, then use only validated
+fields. Explicit property assignment is not itself a mass-assignment issue;
+the concern here is trusting values the caller should not control.
+
+If the order total represents purchases, calculate it from trusted product
+prices and validated quantities rather than accepting the client's total.
+Use decimal storage or integer minor units for money. If entering totals is an
+intentional administrative workflow, validate the amount and authorize that
+workflow explicitly.
+
+Set the initial status on the server. Define permitted status transitions and
+who can perform them; arbitrary status input could bypass payment or fulfilment
+rules. An authorized administrator selecting a user must supply an existing user
+ID. Add foreign-key constraints as well as application validation.
+
+3. Remove the N+1 user queries - medium priority
+
+index() runs Order::all(), then User::find() once per order. For N orders, this
+performs 1 + N queries. Define an Order::user() belongsTo relationship and eager
+load it with with('user'). Select the required user fields, including id, if
+appropriate. Query count then stays bounded for that relationship.
+
+$user->name also assumes the related user exists. Decide how deleted or missing
+users should be represented. If users are mandatory, enforce referential
+integrity; if a missing user is allowed, handle it explicitly in the resource.
+
+4. Paginate the order list - medium priority
+
+Order::all() loads the complete table into memory and returns an unbounded
+response. Use a validated per_page parameter with a sensible maximum, an
+explicit order such as orderBy('id'), and paginate(). Keep authorization scopes
+on the query before executing pagination.
+
+For example, for an authenticated customer endpoint with a user relationship:
+
+    $orders = $request->user()->orders()
+        ->with('user:id,name')
+        ->orderBy('id')
+        ->paginate($request->validated('per_page', 15))
+        ->withQueryString();
+
+This example assumes an IndexOrderRequest validates per_page and the User model
+defines orders(). A paginated response changes the current top-level array
+contract, so document it and coordinate with clients.
+
+5. Clarify and correct the audit operation - high priority if auditing is required
+
+The statement after save() is:
+
+    DB::select("SELECT * FROM audit_log WHERE order_id = " . $order->id);
+
+It reads existing audit rows and discards the result. It does not write an audit
+record. If audit logging is intended, create a record with the actor, action,
+order ID and timestamp. Persist the order and a required database audit record
+in one transaction so they cannot partially succeed. Use the same approach for
+deletion if the audit requirement covers it. External notifications should be
+dispatched after commit or through an appropriate reliable delivery mechanism.
+
+If the read is intentional, explain its purpose and use its result; otherwise
+remove it. Prefer a relationship/query builder or a bound parameter:
+
+    DB::select('SELECT * FROM audit_log WHERE order_id = ?', [$order->id]);
+
+The shown ID comes from the saved model, not directly from request text, so this
+snippet alone does not prove an exploitable SQL injection. Parameter binding
+still makes the boundary explicit and avoids unsafe concatenation patterns.
+
+6. Handle missing orders and deletion rules - high priority
+
+Order::find($id) returns null for an unknown ID; calling delete() on it produces
+an error rather than a controlled 404. Use route model binding or findOrFail(),
+and authorize the resolved order before deleting it.
+
+Confirm whether paid or fulfilled orders can be deleted at all. Cancellation
+or archival may be more appropriate. If soft deletion is required, use Laravel's
+SoftDeletes trait and a deleted_at column. The Order model is not included in
+the sample, so it is not possible to tell whether delete() already soft-deletes.
+
+7. Make the API response contract explicit - medium priority
+
+store() currently returns the model directly with the default 200 response.
+Return 201 Created when creating an order. Use an OrderResource for a consistent
+response shape and explicit field exposure across list and create operations.
+Returning a raw model can expose additional attributes when the model changes.
+
+For deletion, 204 No Content is appropriate when returning no body. A 200
+response with a deletion message is also valid if that is the documented
+contract. Return consistent JSON errors for unauthenticated, forbidden,
+missing-resource and validation failures. Add method return types for clarity.
+
+8. Feature tests required before approval
+
+- Unauthenticated requests are rejected.
+- A customer cannot list another customer's orders, create on their behalf,
+  or delete their orders; authorized administrator behaviour is tested separately.
+- Invalid input returns 422 and creates no order.
+- Client-supplied total/status cannot bypass the intended business rules.
+- Listing is paginated, deterministic and uses bounded relationship queries.
+- Missing related users follow the documented behaviour if they are permitted.
+- Unknown order IDs return 404; unauthorized deletions are denied.
+- Creation returns 201 with the documented resource fields.
+- Deletion obeys status/retention rules and uses the documented response status.
+- If mandatory audit logging fails, the order write is rolled back.
+
+Merge criteria
+
+Resolve access control, input/business-rule validation, missing-order handling
+and the audit behaviour first. Then verify eager loading, pagination, response
+formatting and the tests. Avoid adding extra architecture until the actual
+business rules require it.

@@ -1,0 +1,1003 @@
+{
+  "info": {
+    "_postman_id": "3d46d54f-8116-4510-9ccd-44f62e91e6f5",
+    "name": "Apex Nova Inventory API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "21888081",
+    "description": "Run requests in order with Collection Runner. Start Laravel and seed the demo account first. Login saves auth_token; Create saves product_id and uses a unique SKU. Delete soft-deletes only the created demo product; Logout revokes the token. Variables are collection-scoped; remove environment variables with the same names if they override these values."
+  },
+  "item": [
+    {
+      "name": "01 Login",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": "{{base_url}}/login",
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"interviewer@example.com\",\n  \"password\": \"DemoPassword123!\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected HTTP 200\", function () { pm.response.to.have.status(200); });",
+              "if (pm.response.code === 200) { pm.collectionVariables.set(\"auth_token\", pm.response.json().token); }"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "02 List Products",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": "{{base_url}}/products"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected HTTP 200\", function () { pm.response.to.have.status(200); });",
+              "if (pm.response.code === 200 && Array.isArray(pm.response.json().data)) {",
+              "var template = `",
+              "<style>",
+              "  body { font-family: Arial, sans-serif; padding: 16px; }",
+              "  h2 { color: #333; }",
+              "  table { border-collapse: collapse; width: 100%; }",
+              "  th { background-color: #FF6C37; color: white; padding: 10px 14px; text-align: left; }",
+              "  td { padding: 8px 14px; border-bottom: 1px solid #ddd; }",
+              "  tr:hover { background-color: #f5f5f5; }",
+              "  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; }",
+              "  .in-stock { background-color: #d4edda; color: #155724; }",
+              "  .out-of-stock { background-color: #f8d7da; color: #721c24; }",
+              "</style>",
+              "<h2>Product List</h2>",
+              "<table>",
+              "  <thead>",
+              "    <tr>",
+              "      <th>#</th>",
+              "      <th>Name</th>",
+              "      <th>SKU</th>",
+              "      <th>Category</th>",
+              "      <th>Price</th>",
+              "      <th>Stock</th>",
+              "      <th>Status</th>",
+              "    </tr>",
+              "  </thead>",
+              "  <tbody>",
+              "    {{#each products}}",
+              "    <tr>",
+              "      <td>{{id}}</td>",
+              "      <td>{{name}}</td>",
+              "      <td>{{sku}}</td>",
+              "      <td>{{category}}</td>",
+              "      <td>$ {{price}}</td>",
+              "      <td>{{stock}}</td>",
+              "      <td>",
+              "        {{#if in_stock}}",
+              "          <span class=\"badge in-stock\">In Stock</span>",
+              "        {{else}}",
+              "          <span class=\"badge out-of-stock\">Out of Stock</span>",
+              "        {{/if}}",
+              "      </td>",
+              "    </tr>",
+              "    {{/each}}",
+              "  </tbody>",
+              "</table>",
+              "`;",
+              "",
+              "var jsonData = pm.response.json();",
+              "var products = jsonData.data.map(function(p) {",
+              "    return {",
+              "        id: p.id,",
+              "        name: p.name,",
+              "        sku: p.sku,",
+              "        category: p.category ? p.category.name : '-',",
+              "        price: parseFloat(p.price).toFixed(2),",
+              "        stock: p.stock,",
+              "        in_stock: p.in_stock",
+              "    };",
+              "});",
+              "",
+              "pm.visualizer.set(template, { products: products });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "03 Create Product",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": "{{base_url}}/products",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Gaming Monitor\",\n  \"sku\": \"{{product_sku}}\",\n  \"description\": \"27-inch gaming monitor\",\n  \"category_id\": 1,\n  \"price\": \"799.90\",\n  \"stock\": 10,\n  \"supplier_ids\": [\n    1\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.collectionVariables.unset(\"product_id\");",
+              "pm.collectionVariables.set(\"product_sku\", \"MON-\" + pm.variables.replaceIn(\"{{$guid}}\"));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected HTTP 201\", function () { pm.response.to.have.status(201); });",
+              "if (pm.response.code === 201) { pm.collectionVariables.set(\"product_id\", String(pm.response.json().data.id)); }"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "04 View Product",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": "{{base_url}}/products/{{product_id}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected HTTP 200\", function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "05 Update Product",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": "{{base_url}}/products/{{product_id}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"price\": \"749.90\",\n  \"stock\": 0\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected HTTP 200\", function () { pm.response.to.have.status(200); });",
+              "if (pm.response.code === 200) { pm.test(\"Stock accessor reflects zero stock\", function () { pm.expect(pm.response.json().data.in_stock).to.eql(false); }); }"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "06 Category Filter",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": "{{base_url}}/products?category_id=1"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected HTTP 200\", function () { pm.response.to.have.status(200); });",
+              "if (pm.response.code === 200 && Array.isArray(pm.response.json().data)) {",
+              "var template = `",
+              "<style>",
+              "  body { font-family: Arial, sans-serif; padding: 16px; }",
+              "  h2 { color: #333; }",
+              "  table { border-collapse: collapse; width: 100%; }",
+              "  th { background-color: #FF6C37; color: white; padding: 10px 14px; text-align: left; }",
+              "  td { padding: 8px 14px; border-bottom: 1px solid #ddd; }",
+              "  tr:hover { background-color: #f5f5f5; }",
+              "  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; }",
+              "  .in-stock { background-color: #d4edda; color: #155724; }",
+              "  .out-of-stock { background-color: #f8d7da; color: #721c24; }",
+              "</style>",
+              "<h2>Product List</h2>",
+              "<table>",
+              "  <thead>",
+              "    <tr>",
+              "      <th>#</th>",
+              "      <th>Name</th>",
+              "      <th>SKU</th>",
+              "      <th>Category</th>",
+              "      <th>Price</th>",
+              "      <th>Stock</th>",
+              "      <th>Status</th>",
+              "    </tr>",
+              "  </thead>",
+              "  <tbody>",
+              "    {{#each products}}",
+              "    <tr>",
+              "      <td>{{id}}</td>",
+              "      <td>{{name}}</td>",
+              "      <td>{{sku}}</td>",
+              "      <td>{{category}}</td>",
+              "      <td>$ {{price}}</td>",
+              "      <td>{{stock}}</td>",
+              "      <td>",
+              "        {{#if in_stock}}",
+              "          <span class=\"badge in-stock\">In Stock</span>",
+              "        {{else}}",
+              "          <span class=\"badge out-of-stock\">Out of Stock</span>",
+              "        {{/if}}",
+              "      </td>",
+              "    </tr>",
+              "    {{/each}}",
+              "  </tbody>",
+              "</table>",
+              "`;",
+              "",
+              "var jsonData = pm.response.json();",
+              "var products = jsonData.data.map(function(p) {",
+              "    return {",
+              "        id: p.id,",
+              "        name: p.name,",
+              "        sku: p.sku,",
+              "        category: p.category ? p.category.name : '-',",
+              "        price: parseFloat(p.price).toFixed(2),",
+              "        stock: p.stock,",
+              "        in_stock: p.in_stock",
+              "    };",
+              "});",
+              "",
+              "pm.visualizer.set(template, { products: products });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "07 Price Filter",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": "{{base_url}}/products?min_price=40&max_price=100"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected HTTP 200\", function () { pm.response.to.have.status(200); });",
+              "if (pm.response.code === 200 && Array.isArray(pm.response.json().data)) {",
+              "var template = `",
+              "<style>",
+              "  body { font-family: Arial, sans-serif; padding: 16px; }",
+              "  h2 { color: #333; }",
+              "  table { border-collapse: collapse; width: 100%; }",
+              "  th { background-color: #FF6C37; color: white; padding: 10px 14px; text-align: left; }",
+              "  td { padding: 8px 14px; border-bottom: 1px solid #ddd; }",
+              "  tr:hover { background-color: #f5f5f5; }",
+              "  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; }",
+              "  .in-stock { background-color: #d4edda; color: #155724; }",
+              "  .out-of-stock { background-color: #f8d7da; color: #721c24; }",
+              "</style>",
+              "<h2>Product List</h2>",
+              "<table>",
+              "  <thead>",
+              "    <tr>",
+              "      <th>#</th>",
+              "      <th>Name</th>",
+              "      <th>SKU</th>",
+              "      <th>Category</th>",
+              "      <th>Price</th>",
+              "      <th>Stock</th>",
+              "      <th>Status</th>",
+              "    </tr>",
+              "  </thead>",
+              "  <tbody>",
+              "    {{#each products}}",
+              "    <tr>",
+              "      <td>{{id}}</td>",
+              "      <td>{{name}}</td>",
+              "      <td>{{sku}}</td>",
+              "      <td>{{category}}</td>",
+              "      <td>$ {{price}}</td>",
+              "      <td>{{stock}}</td>",
+              "      <td>",
+              "        {{#if in_stock}}",
+              "          <span class=\"badge in-stock\">In Stock</span>",
+              "        {{else}}",
+              "          <span class=\"badge out-of-stock\">Out of Stock</span>",
+              "        {{/if}}",
+              "      </td>",
+              "    </tr>",
+              "    {{/each}}",
+              "  </tbody>",
+              "</table>",
+              "`;",
+              "",
+              "var jsonData = pm.response.json();",
+              "var products = jsonData.data.map(function(p) {",
+              "    return {",
+              "        id: p.id,",
+              "        name: p.name,",
+              "        sku: p.sku,",
+              "        category: p.category ? p.category.name : '-',",
+              "        price: parseFloat(p.price).toFixed(2),",
+              "        stock: p.stock,",
+              "        in_stock: p.in_stock",
+              "    };",
+              "});",
+              "",
+              "pm.visualizer.set(template, { products: products });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "08 Stock Filter",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": "{{base_url}}/products?max_stock=0"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected HTTP 200\", function () { pm.response.to.have.status(200); });",
+              "if (pm.response.code === 200 && Array.isArray(pm.response.json().data)) {",
+              "var template = `",
+              "<style>",
+              "  body { font-family: Arial, sans-serif; padding: 16px; }",
+              "  h2 { color: #333; }",
+              "  table { border-collapse: collapse; width: 100%; }",
+              "  th { background-color: #FF6C37; color: white; padding: 10px 14px; text-align: left; }",
+              "  td { padding: 8px 14px; border-bottom: 1px solid #ddd; }",
+              "  tr:hover { background-color: #f5f5f5; }",
+              "  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; }",
+              "  .in-stock { background-color: #d4edda; color: #155724; }",
+              "  .out-of-stock { background-color: #f8d7da; color: #721c24; }",
+              "</style>",
+              "<h2>Product List</h2>",
+              "<table>",
+              "  <thead>",
+              "    <tr>",
+              "      <th>#</th>",
+              "      <th>Name</th>",
+              "      <th>SKU</th>",
+              "      <th>Category</th>",
+              "      <th>Price</th>",
+              "      <th>Stock</th>",
+              "      <th>Status</th>",
+              "    </tr>",
+              "  </thead>",
+              "  <tbody>",
+              "    {{#each products}}",
+              "    <tr>",
+              "      <td>{{id}}</td>",
+              "      <td>{{name}}</td>",
+              "      <td>{{sku}}</td>",
+              "      <td>{{category}}</td>",
+              "      <td>$ {{price}}</td>",
+              "      <td>{{stock}}</td>",
+              "      <td>",
+              "        {{#if in_stock}}",
+              "          <span class=\"badge in-stock\">In Stock</span>",
+              "        {{else}}",
+              "          <span class=\"badge out-of-stock\">Out of Stock</span>",
+              "        {{/if}}",
+              "      </td>",
+              "    </tr>",
+              "    {{/each}}",
+              "  </tbody>",
+              "</table>",
+              "`;",
+              "",
+              "var jsonData = pm.response.json();",
+              "var products = jsonData.data.map(function(p) {",
+              "    return {",
+              "        id: p.id,",
+              "        name: p.name,",
+              "        sku: p.sku,",
+              "        category: p.category ? p.category.name : '-',",
+              "        price: parseFloat(p.price).toFixed(2),",
+              "        stock: p.stock,",
+              "        in_stock: p.in_stock",
+              "    };",
+              "});",
+              "",
+              "pm.visualizer.set(template, { products: products });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "09 Combined Filters",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": "{{base_url}}/products?category_id=1&min_price=40&max_price=100&min_stock=1"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected HTTP 200\", function () { pm.response.to.have.status(200); });",
+              "if (pm.response.code === 200 && Array.isArray(pm.response.json().data)) {",
+              "var template = `",
+              "<style>",
+              "  body { font-family: Arial, sans-serif; padding: 16px; }",
+              "  h2 { color: #333; }",
+              "  table { border-collapse: collapse; width: 100%; }",
+              "  th { background-color: #FF6C37; color: white; padding: 10px 14px; text-align: left; }",
+              "  td { padding: 8px 14px; border-bottom: 1px solid #ddd; }",
+              "  tr:hover { background-color: #f5f5f5; }",
+              "  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; }",
+              "  .in-stock { background-color: #d4edda; color: #155724; }",
+              "  .out-of-stock { background-color: #f8d7da; color: #721c24; }",
+              "</style>",
+              "<h2>Product List</h2>",
+              "<table>",
+              "  <thead>",
+              "    <tr>",
+              "      <th>#</th>",
+              "      <th>Name</th>",
+              "      <th>SKU</th>",
+              "      <th>Category</th>",
+              "      <th>Price</th>",
+              "      <th>Stock</th>",
+              "      <th>Status</th>",
+              "    </tr>",
+              "  </thead>",
+              "  <tbody>",
+              "    {{#each products}}",
+              "    <tr>",
+              "      <td>{{id}}</td>",
+              "      <td>{{name}}</td>",
+              "      <td>{{sku}}</td>",
+              "      <td>{{category}}</td>",
+              "      <td>$ {{price}}</td>",
+              "      <td>{{stock}}</td>",
+              "      <td>",
+              "        {{#if in_stock}}",
+              "          <span class=\"badge in-stock\">In Stock</span>",
+              "        {{else}}",
+              "          <span class=\"badge out-of-stock\">Out of Stock</span>",
+              "        {{/if}}",
+              "      </td>",
+              "    </tr>",
+              "    {{/each}}",
+              "  </tbody>",
+              "</table>",
+              "`;",
+              "",
+              "var jsonData = pm.response.json();",
+              "var products = jsonData.data.map(function(p) {",
+              "    return {",
+              "        id: p.id,",
+              "        name: p.name,",
+              "        sku: p.sku,",
+              "        category: p.category ? p.category.name : '-',",
+              "        price: parseFloat(p.price).toFixed(2),",
+              "        stock: p.stock,",
+              "        in_stock: p.in_stock",
+              "    };",
+              "});",
+              "",
+              "pm.visualizer.set(template, { products: products });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "10 Pagination Page 1",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": "{{base_url}}/products?per_page=2&page=1"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected HTTP 200\", function () { pm.response.to.have.status(200); });",
+              "if (pm.response.code === 200 && Array.isArray(pm.response.json().data)) {",
+              "var template = `",
+              "<style>",
+              "  body { font-family: Arial, sans-serif; padding: 16px; }",
+              "  h2 { color: #333; }",
+              "  table { border-collapse: collapse; width: 100%; }",
+              "  th { background-color: #FF6C37; color: white; padding: 10px 14px; text-align: left; }",
+              "  td { padding: 8px 14px; border-bottom: 1px solid #ddd; }",
+              "  tr:hover { background-color: #f5f5f5; }",
+              "  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; }",
+              "  .in-stock { background-color: #d4edda; color: #155724; }",
+              "  .out-of-stock { background-color: #f8d7da; color: #721c24; }",
+              "</style>",
+              "<h2>Product List</h2>",
+              "<table>",
+              "  <thead>",
+              "    <tr>",
+              "      <th>#</th>",
+              "      <th>Name</th>",
+              "      <th>SKU</th>",
+              "      <th>Category</th>",
+              "      <th>Price</th>",
+              "      <th>Stock</th>",
+              "      <th>Status</th>",
+              "    </tr>",
+              "  </thead>",
+              "  <tbody>",
+              "    {{#each products}}",
+              "    <tr>",
+              "      <td>{{id}}</td>",
+              "      <td>{{name}}</td>",
+              "      <td>{{sku}}</td>",
+              "      <td>{{category}}</td>",
+              "      <td>$ {{price}}</td>",
+              "      <td>{{stock}}</td>",
+              "      <td>",
+              "        {{#if in_stock}}",
+              "          <span class=\"badge in-stock\">In Stock</span>",
+              "        {{else}}",
+              "          <span class=\"badge out-of-stock\">Out of Stock</span>",
+              "        {{/if}}",
+              "      </td>",
+              "    </tr>",
+              "    {{/each}}",
+              "  </tbody>",
+              "</table>",
+              "`;",
+              "",
+              "var jsonData = pm.response.json();",
+              "var products = jsonData.data.map(function(p) {",
+              "    return {",
+              "        id: p.id,",
+              "        name: p.name,",
+              "        sku: p.sku,",
+              "        category: p.category ? p.category.name : '-',",
+              "        price: parseFloat(p.price).toFixed(2),",
+              "        stock: p.stock,",
+              "        in_stock: p.in_stock",
+              "    };",
+              "});",
+              "",
+              "pm.visualizer.set(template, { products: products });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "11 Pagination Page 2",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": "{{base_url}}/products?per_page=2&page=2"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected HTTP 200\", function () { pm.response.to.have.status(200); });",
+              "if (pm.response.code === 200 && Array.isArray(pm.response.json().data)) {",
+              "var template = `",
+              "<style>",
+              "  body { font-family: Arial, sans-serif; padding: 16px; }",
+              "  h2 { color: #333; }",
+              "  table { border-collapse: collapse; width: 100%; }",
+              "  th { background-color: #FF6C37; color: white; padding: 10px 14px; text-align: left; }",
+              "  td { padding: 8px 14px; border-bottom: 1px solid #ddd; }",
+              "  tr:hover { background-color: #f5f5f5; }",
+              "  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; }",
+              "  .in-stock { background-color: #d4edda; color: #155724; }",
+              "  .out-of-stock { background-color: #f8d7da; color: #721c24; }",
+              "</style>",
+              "<h2>Product List</h2>",
+              "<table>",
+              "  <thead>",
+              "    <tr>",
+              "      <th>#</th>",
+              "      <th>Name</th>",
+              "      <th>SKU</th>",
+              "      <th>Category</th>",
+              "      <th>Price</th>",
+              "      <th>Stock</th>",
+              "      <th>Status</th>",
+              "    </tr>",
+              "  </thead>",
+              "  <tbody>",
+              "    {{#each products}}",
+              "    <tr>",
+              "      <td>{{id}}</td>",
+              "      <td>{{name}}</td>",
+              "      <td>{{sku}}</td>",
+              "      <td>{{category}}</td>",
+              "      <td>$ {{price}}</td>",
+              "      <td>{{stock}}</td>",
+              "      <td>",
+              "        {{#if in_stock}}",
+              "          <span class=\"badge in-stock\">In Stock</span>",
+              "        {{else}}",
+              "          <span class=\"badge out-of-stock\">Out of Stock</span>",
+              "        {{/if}}",
+              "      </td>",
+              "    </tr>",
+              "    {{/each}}",
+              "  </tbody>",
+              "</table>",
+              "`;",
+              "",
+              "var jsonData = pm.response.json();",
+              "var products = jsonData.data.map(function(p) {",
+              "    return {",
+              "        id: p.id,",
+              "        name: p.name,",
+              "        sku: p.sku,",
+              "        category: p.category ? p.category.name : '-',",
+              "        price: parseFloat(p.price).toFixed(2),",
+              "        stock: p.stock,",
+              "        in_stock: p.in_stock",
+              "    };",
+              "});",
+              "",
+              "pm.visualizer.set(template, { products: products });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "12 Invalid Stock",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": "{{base_url}}/products/{{product_id}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"stock\": -5\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected HTTP 422\", function () { pm.response.to.have.status(422); });",
+              "if (pm.response.code === 422) { pm.test(\"Stock validation error returned\", function () { pm.expect(pm.response.json().errors).to.have.property(\"stock\"); }); }"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "13 Without Token",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": "{{base_url}}/products",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected HTTP 401\", function () { pm.response.to.have.status(401); });"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "14 Delete Product",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": "{{base_url}}/products/{{product_id}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected HTTP 204\", function () { pm.response.to.have.status(204); });"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "15 Deleted Product Returns 404",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": "{{base_url}}/products/{{product_id}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected HTTP 404\", function () { pm.response.to.have.status(404); });"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "16 Logout",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": "{{base_url}}/logout"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected HTTP 204\", function () { pm.response.to.have.status(204); });"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "17 Revoked Token Returns 401",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": "{{base_url}}/products"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected HTTP 401\", function () { pm.response.to.have.status(401); });",
+              "if (pm.response.code === 401) { pm.collectionVariables.unset(\"auth_token\"); }"
+            ]
+          }
+        }
+      ],
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:8000/api",
+      "type": "string"
+    },
+    {
+      "key": "auth_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "product_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "product_sku",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{auth_token}}",
+        "type": "string"
+      }
+    ]
+  }
+}

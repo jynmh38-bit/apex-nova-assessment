@@ -1,0 +1,12 @@
+/tmp/
+/Senior PHP Engineer Assessment (Take Home Assessment Test).pdf
+/inventory-api/.env
+/inventory-api/vendor/
+/inventory-api/node_modules/
+/inventory-api/database/*.sqlite*
+/inventory-api/database/data/
+/inventory-api/storage/*.key
+/inventory-api/storage/logs/*
+!/inventory-api/storage/logs/.gitignore
+/inventory-api/.phpunit.result.cache
+/inventory-api/sanctum-install.log
